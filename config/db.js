@@ -4,22 +4,27 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 let pool = null;
+let lastDbError = null;
 
 export const getDB = () => {
   if (!pool) {
-    throw new Error('Database pool has not been initialized. Call initDB() first.');
+    throw new Error(lastDbError ? `Database connection failed: ${lastDbError}` : 'Database pool is still initializing...');
   }
   return pool;
 };
 
+export const getDbStatus = () => ({
+  connected: !!pool,
+  error: lastDbError,
+});
+
 export const initDB = async () => {
   try {
-    const config = {
+    const baseConfig = {
       host: process.env.TIDB_HOST || '127.0.0.1',
       port: Number(process.env.TIDB_PORT) || 4000,
       user: process.env.TIDB_USER || 'root',
       password: process.env.TIDB_PASSWORD || '',
-      database: process.env.TIDB_DATABASE || 'food_ordering_db',
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
@@ -29,23 +34,41 @@ export const initDB = async () => {
       } : undefined,
     };
 
-    pool = mysql.createPool(config);
+    const targetDb = process.env.TIDB_DATABASE || 'food_ordering_db';
 
-    // Test connection
+    // Step 1: Ensure database exists
+    try {
+      const initConn = await mysql.createConnection(baseConfig);
+      await initConn.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\`;`);
+      await initConn.end();
+    } catch (e) {
+      console.warn(`Note: Could not run CREATE DATABASE: ${e.message}`);
+    }
+
+    // Step 2: Create connection pool for the target database
+    pool = mysql.createPool({
+      ...baseConfig,
+      database: targetDb,
+    });
+
     const connection = await pool.getConnection();
-    console.log(`✅ Connected to TiDB Cloud (MySQL): ${config.host}:${config.port}/${config.database}`);
+    console.log(`✅ Connected to TiDB Cloud (MySQL): ${baseConfig.host}:${baseConfig.port}/${targetDb}`);
     connection.release();
 
-    // Initialize tables automatically
+    lastDbError = null;
+
+    // Step 3: Automatically initialize tables
     await createTables();
   } catch (error) {
+    lastDbError = error.message;
     console.error(`❌ TiDB Cloud Connection Error: ${error.message}`);
-    console.error(`💡 Tip: Check your TIDB_HOST, TIDB_USER, TIDB_PASSWORD, and TIDB_DATABASE in backend/.env`);
-    process.exit(1);
+    console.error(`💡 Tip: Check your TIDB_HOST, TIDB_USER, TIDB_PASSWORD, and TIDB_DATABASE in backend/.env or Render`);
+    // Do NOT exit process so Render web service stays online and reports diagnostic messages
   }
 };
 
 const createTables = async () => {
+  if (!pool) return;
   const db = getDB();
 
   await db.query(`

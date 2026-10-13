@@ -31,12 +31,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 import { seedDatabase } from './seed.js';
+import { getDbStatus } from './config/db.js';
 
 // Health check endpoint
 app.get('/', (req, res) => {
+  const dbStatus = getDbStatus();
   res.json({
-    status: 'online',
-    message: 'Online Food Ordering System API is running smoothly',
+    status: dbStatus.connected ? 'online' : 'database_error',
+    message: dbStatus.connected
+      ? 'Online Food Ordering System API is running smoothly'
+      : `Server is online, but database connection failed: ${dbStatus.error}`,
+    database: dbStatus,
     timestamp: new Date().toISOString(),
   });
 });
