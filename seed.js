@@ -194,11 +194,18 @@ const seedData = async () => {
     console.log('  Admin Login:    admin@food.com / admin123');
     console.log('  Customer Login: customer@gmail.com / customer123');
     console.log('--------------------------------------------------');
-    process.exit(0);
+    return { success: true };
   } catch (err) {
     console.error('❌ TiDB Seeding Error:', err);
-    process.exit(1);
+    throw err;
   }
 };
 
-seedData();
+export { seedData as seedDatabase };
+
+// If executed directly from command line
+if (process.argv[1]?.endsWith('seed.js')) {
+  seedData()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
+}

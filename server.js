@@ -30,6 +30,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+import { seedDatabase } from './seed.js';
+
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -42,6 +44,25 @@ app.get('/', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
+
+// Convenient 1-click cloud database seeder endpoint
+const handleSeed = async (req, res) => {
+  try {
+    await seedDatabase();
+    res.json({
+      success: true,
+      message: 'TiDB Cloud successfully seeded with sample foods and accounts!',
+      credentials: {
+        admin: 'admin@food.com / admin123',
+        customer: 'customer@gmail.com / customer123',
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+app.get('/api/seed', handleSeed);
+app.get('/seed', handleSeed);
 
 // Mount API routes (supports both with and without /api prefix)
 app.use('/api/auth', authRoutes);
