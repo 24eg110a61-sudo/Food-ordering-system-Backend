@@ -43,13 +43,24 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
-// Mount API routes
+// Mount API routes (supports both with and without /api prefix)
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/foods', foodRoutes);
+app.use('/foods', foodRoutes);
+
 app.use('/api/categories', categoryRoutes);
+app.use('/categories', categoryRoutes);
+
 app.use('/api/cart', cartRoutes);
+app.use('/cart', cartRoutes);
+
 app.use('/api/orders', orderRoutes);
+app.use('/orders', orderRoutes);
+
 app.use('/api/admin', adminRoutes);
+app.use('/admin', adminRoutes);
 
 // 404 Handler for undefined routes
 app.use((req, res, next) => {
